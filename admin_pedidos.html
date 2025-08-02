@@ -1,0 +1,306 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Pedidos Pendientes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://apis.google.com/js/api.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+
+    <div class="container mx-auto p-4 md:p-8 max-w-4xl">
+        <div class="bg-white rounded-xl shadow-lg p-6 md:p-8">
+            <div class="flex justify-between items-center mb-6 pb-4 border-b">
+                <h1 class="text-2xl md:text-3xl font-bold text-gray-700">Pedidos Pendientes</h1>
+                <div id="auth-container">
+                    <button id="authorize_button" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-300">Autorizar</button>
+                    <button id="signout_button" class="hidden bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-300">Cerrar Sesión</button>
+                </div>
+            </div>
+
+
+            <!-- Contenedor para mensajes y errores -->
+            <div id="message-container" class="mb-4"></div>
+
+
+            <!-- Contenedor de la tabla de pedidos -->
+            <div id="orders-container" class="overflow-x-auto">
+                <!-- La tabla se generará aquí con JavaScript -->
+            </div>
+             <div id="loader" class="hidden text-center py-8">
+                <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+                <p class="mt-4 text-gray-600">Cargando...</p>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // ===================================================================================
+        // PASO 1: CONFIGURACIÓN - ¡IMPORTANTE!
+        // ===================================================================================
+        // Sigue estos pasos para obtener tus credenciales:
+        // 1. Ve a la Google Cloud Console: https://console.cloud.google.com/
+        // 2. Crea un nuevo proyecto o selecciona uno existente.
+        // 3. En el menú de navegación, ve a "APIs y servicios" > "Biblioteca".
+        // 4. Busca "Google Sheets API" y actívala.
+        // 5. Ve a "APIs y servicios" > "Credenciales".
+        // 6. Haz clic en "+ CREAR CREDENCIALES" y selecciona "Clave de API". Cópiala y pégala abajo.
+        // 7. Vuelve a hacer clic en "+ CREAR CREDENCIALES" y selecciona "ID de cliente de OAuth".
+        // 8. Selecciona "Aplicación web" como tipo de aplicación.
+        // 9. En "Orígenes de JavaScript autorizados", añade la URL donde alojarás esta página (ej. http://localhost, http://127.0.0.1:5500 o tu dominio).
+        // 10. En "URIs de redireccionamiento autorizados", añade la misma URL.
+        // 11. Crea el ID de cliente, cópialo y pégalo abajo.
+
+
+        const API_KEY = 'AIzaSyA4qxGEwBuea5WdYjHPzlY3gCj-8nDlvPs'; // <-- PEGA TU CLAVE DE API AQUÍ
+        const CLIENT_ID = '442494990997-3jgbq9lafn9gsn8kdaovn91uc1pn3amk.apps.googleusercontent.com'; // <-- PEGA TU ID DE CLIENTE AQUÍ
+
+
+        // ===================================================================================
+        // NO MODIFICAR DEBAJO DE ESTA LÍNEA
+        // ===================================================================================
+
+
+        const DISCOVERY_DOC = 'https://sheets.googleapis.com/$discovery/rest?version=v4';
+        const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
+        const SPREADSHEET_ID = '1iESlwByM_7_GfkdvkQjFrYg9-HkxCgqXU59OpglUgrw';
+        const SHEET_NAME = 'Pedidos';
+        const STATUS_COLUMN = 'E'; // Columna E para el estado
+
+
+        let tokenClient;
+        let gapiInited = false;
+        let gisInited = false;
+
+
+        const authorizeButton = document.getElementById('authorize_button');
+        const signoutButton = document.getElementById('signout_button');
+        const ordersContainer = document.getElementById('orders-container');
+        const messageContainer = document.getElementById('message-container');
+        const loader = document.getElementById('loader');
+
+
+        authorizeButton.onclick = handleAuthClick;
+        signoutButton.onclick = handleSignoutClick;
+
+
+        // Carga de las APIs de Google
+        function gapiLoaded() {
+            gapi.load('client', initializeGapiClient);
+        }
+
+
+        async function initializeGapiClient() {
+            await gapi.client.init({
+                apiKey: API_KEY,
+                discoveryDocs: [DISCOVERY_DOC],
+            });
+            gapiInited = true;
+            maybeEnableButtons();
+        }
+
+
+        function gisLoaded() {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: SCOPES,
+                callback: '', // Se define dinámicamente en handleAuthClick
+            });
+            gisInited = true;
+            maybeEnableButtons();
+        }
+
+
+        function maybeEnableButtons() {
+            if (gapiInited && gisInited) {
+                authorizeButton.style.visibility = 'visible';
+            }
+             if (!API_KEY.startsWith('TU_') && !CLIENT_ID.startsWith('TU_')) {
+                showMessage('info', 'Listo para autorizar. Haz clic en el botón para comenzar.');
+            } else {
+                showMessage('error', '<strong>Configuración requerida:</strong> Por favor, añade tu Clave de API y tu ID de Cliente en el script para continuar.');
+                authorizeButton.disabled = true;
+            }
+        }
+
+
+        // Manejo de la autenticación
+        function handleAuthClick() {
+            tokenClient.callback = async (resp) => {
+                if (resp.error !== undefined) {
+                    throw (resp);
+                }
+                authorizeButton.classList.add('hidden');
+                signoutButton.classList.remove('hidden');
+                showMessage('success', '¡Autorización exitosa! Cargando pedidos...');
+                await listPendingOrders();
+            };
+
+
+            if (gapi.client.getToken() === null) {
+                tokenClient.requestAccessToken({prompt: 'consent'});
+            } else {
+                tokenClient.requestAccessToken({prompt: ''});
+            }
+        }
+
+
+        function handleSignoutClick() {
+            const token = gapi.client.getToken();
+            if (token !== null) {
+                google.accounts.oauth2.revoke(token.access_token);
+                gapi.client.setToken('');
+                ordersContainer.innerHTML = '';
+                authorizeButton.classList.remove('hidden');
+                signoutButton.classList.add('hidden');
+                showMessage('info', 'Has cerrado la sesión.');
+            }
+        }
+
+
+        // Función para mostrar mensajes al usuario
+        function showMessage(type, text) {
+            const colors = {
+                info: 'bg-blue-100 border-blue-500 text-blue-700',
+                success: 'bg-green-100 border-green-500 text-green-700',
+                error: 'bg-red-100 border-red-500 text-red-700',
+                warning: 'bg-yellow-100 border-yellow-500 text-yellow-700'
+            };
+            messageContainer.innerHTML = `<div class="border-l-4 p-4 ${colors[type]}" role="alert"><p>${text}</p></div>`;
+        }
+        
+        // Función para listar los pedidos pendientes
+        async function listPendingOrders() {
+            loader.classList.remove('hidden');
+            ordersContainer.innerHTML = '';
+            messageContainer.innerHTML = '';
+            
+            try {
+                const response = await gapi.client.sheets.spreadsheets.values.get({
+                    spreadsheetId: SPREADSHEET_ID,
+                    range: `${SHEET_NAME}!A:E`, // Leer columnas A a E
+                });
+
+
+                const rows = response.result.values;
+                if (rows && rows.length > 1) { // >1 para saltar la cabecera
+                    const headers = rows[0];
+                    const pendingOrders = [];
+
+
+                    // Empezamos desde i=1 para saltar la fila de cabecera
+                    for (let i = 1; i < rows.length; i++) {
+                        const order = rows[i];
+                        // La columna de estado es la E, que corresponde al índice 4
+                        if (order[4] && order[4].toLowerCase() === 'pendiente') {
+                            // Guardamos el pedido y su número de fila original (i + 1 porque las filas de Sheets son 1-indexed)
+                            pendingOrders.push({ data: order, rowNum: i + 1 });
+                        }
+                    }
+                    
+                    renderOrdersTable(pendingOrders, headers);
+
+
+                } else {
+                    showMessage('info', 'No se encontraron pedidos pendientes o la hoja está vacía.');
+                }
+            } catch (err) {
+                console.error(err);
+                showMessage('error', `Error al cargar los datos: ${err.result.error.message}`);
+            } finally {
+                loader.classList.add('hidden');
+            }
+        }
+
+
+        // Función para renderizar la tabla de pedidos
+        function renderOrdersTable(orders, headers) {
+            if (orders.length === 0) {
+                 showMessage('success', '¡Felicidades! No hay pedidos pendientes.');
+                 ordersContainer.innerHTML = '';
+                 return;
+            }
+
+
+            let tableHTML = `
+                <table class="min-w-full bg-white rounded-lg">
+                    <thead class="bg-gray-200">
+                        <tr>`;
+            // Usamos solo las primeras 4 cabeceras (A-D) para la tabla
+            for(let i = 0; i < 4; i++) {
+                tableHTML += `<th class="text-left py-3 px-4 uppercase font-semibold text-sm">${headers[i] || `Columna ${i+1}`}</th>`;
+            }
+            tableHTML += `<th class="text-left py-3 px-4 uppercase font-semibold text-sm">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-gray-700">`;
+
+
+            orders.forEach(orderItem => {
+                tableHTML += `<tr class="border-b border-gray-200 hover:bg-gray-50">`;
+                // Mostramos los datos de las primeras 4 columnas
+                for(let i = 0; i < 4; i++) {
+                    tableHTML += `<td class="text-left py-3 px-4">${orderItem.data[i] || ''}</td>`;
+                }
+                tableHTML += `<td class="text-left py-3 px-4">
+                                <button onclick="markAsDelivered(${orderItem.rowNum}, this)" 
+                                        class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-300 disabled:bg-gray-400">
+                                    Entregar
+                                </button>
+                              </td>
+                            </tr>`;
+            });
+
+
+            tableHTML += `</tbody></table>`;
+            ordersContainer.innerHTML = tableHTML;
+        }
+
+
+        // Función para marcar un pedido como "Entregado"
+        async function markAsDelivered(rowNum, button) {
+            button.disabled = true;
+            button.textContent = 'Actualizando...';
+
+
+            const updateRange = `${SHEET_NAME}!${STATUS_COLUMN}${rowNum}`;
+            
+            try {
+                await gapi.client.sheets.spreadsheets.values.update({
+                    spreadsheetId: SPREADSHEET_ID,
+                    range: updateRange,
+                    valueInputOption: 'USER_ENTERED',
+                    resource: {
+                        values: [['Entregado']]
+                    }
+                });
+                
+                showMessage('success', `El pedido de la fila ${rowNum} ha sido marcado como 'Entregado'. Actualizando lista...`);
+                // Esperar un poco para que el usuario vea el mensaje antes de recargar
+                setTimeout(listPendingOrders, 1500);
+
+
+            } catch (err) {
+                console.error(err);
+                showMessage('error', `Error al actualizar la hoja: ${err.result.error.message}`);
+                button.disabled = false;
+                button.textContent = 'Entregar';
+            }
+        }
+
+
+    </script>
+    <!-- Carga asíncrona de las librerías de Google -->
+    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+</body>
+</html>
