@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Pedidos</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -34,7 +34,7 @@
             <h1 class="text-3xl sm:text-4xl font-bold text-gray-800 mb-2">Tu Pedido</h1>
             <p class="text-gray-500 mb-6">Ingresa tu nombre y selecciona los productos que deseas comprar.</p>
 
-            <!-- Nombre del Cliente (Movido a la parte superior) -->
+            <!-- Nombre del Cliente -->
             <div class="mb-8">
                 <label for="customer-name" class="block text-sm font-medium text-gray-700 mb-2">Nombre del Cliente:</label>
                 <input type="text" id="customer-name" name="customer-name" class="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ingresa tu nombre completo">
@@ -69,7 +69,7 @@
 
     <!-- Modal de Confirmación -->
     <div id="confirmation-modal" class="fixed inset-0 bg-gray-900 bg-opacity-60 flex items-center justify-center p-4 hidden">
-        <div class="bg-white rounded-2xl shadow-xl p-8 max-w-sm w-full text-center modal-fade-in">
+        <div class="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center modal-fade-in">
             <div id="modal-icon" class="mx-auto mb-4">
                 <!-- Icono de éxito o error se insertará aquí -->
             </div>
@@ -111,12 +111,10 @@
         const modalMessage = document.getElementById('modal-message');
         const modalIcon = document.getElementById('modal-icon');
 
-        // Función para formatear el precio a moneda chilena
         function formatPrice(price) {
             return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(price);
         }
 
-        // Renderizar la lista de productos
         function renderProducts() {
             products.forEach(product => {
                 const productElement = document.createElement('div');
@@ -136,7 +134,6 @@
             });
         }
 
-        // Actualizar la cantidad de un producto
         window.updateQuantity = function(productId, change) {
             const input = document.getElementById(`quantity-${productId}`);
             let currentValue = parseInt(input.value);
@@ -146,7 +143,6 @@
             calculateTotal();
         }
 
-        // Calcular el total del pedido
         window.calculateTotal = function() {
             let total = 0;
             products.forEach(product => {
@@ -159,7 +155,6 @@
             totalAmountEl.textContent = formatPrice(total);
         }
 
-        // Mostrar el modal
         function showModal(title, message, isSuccess) {
             modalTitle.textContent = title;
             modalMessage.innerHTML = message;
@@ -171,12 +166,10 @@
             modal.classList.remove('hidden');
         }
 
-        // Cerrar el modal
         window.closeModal = function() {
             modal.classList.add('hidden');
         }
         
-        // Resetear el formulario
         function resetForm() {
             products.forEach(product => {
                 document.getElementById(`quantity-${product.id}`).value = 0;
@@ -185,7 +178,6 @@
             calculateTotal();
         }
 
-        // Enviar el pedido
         submitButton.addEventListener('click', () => {
             const customerName = customerNameEl.value.trim();
             if (!customerName) {
@@ -195,12 +187,7 @@
 
             const orderDetails = products.map(product => {
                 const quantity = parseInt(document.getElementById(`quantity-${product.id}`).value);
-                return {
-                    name: product.name,
-                    quantity: quantity,
-                    price: product.price,
-                    subtotal: product.price * quantity
-                };
+                return { name: product.name, quantity: quantity, price: product.price, subtotal: product.price * quantity };
             }).filter(item => item.quantity > 0);
 
             if (orderDetails.length === 0) {
@@ -214,13 +201,8 @@
 
             const total = orderDetails.reduce((sum, item) => sum + item.subtotal, 0);
 
-            const data = {
-                customerName: customerName,
-                total: total,
-                items: formattedOrderDetails
-            };
+            const data = { customerName: customerName, total: total, items: formattedOrderDetails };
 
-            // Mostrar spinner y deshabilitar botón
             buttonText.classList.add('hidden');
             buttonSpinner.classList.remove('hidden');
             submitButton.disabled = true;
@@ -233,11 +215,12 @@
             })
             .then(res => res.json())
             .then(data => {
-                if(data.result === 'success') {
+                if(data.result === 'success' && data.orderNumber) {
                     // --- CAMBIO PRINCIPAL AQUÍ ---
-                    // Se añade el aviso para sacar pantallazo y se le da estilo.
                     const summaryHtml = orderDetails.map(item => `<p class="text-sm text-left">${item.quantity} x ${item.name}</p>`).join('');
                     const successMessage = `
+                        <p class="text-gray-800">Tu número de pedido es:</p>
+                        <p class='text-5xl font-extrabold text-indigo-600 my-3'>#${data.orderNumber}</p>
                         <p class='text-lg font-bold text-red-600 mb-4'>Recuerda sacar un pantallazo a este mensaje</p>
                         <p>Tu pedido ha sido registrado. ¡Gracias por tu compra!</p>
                         <div class="mt-4 bg-gray-50 p-3 rounded-lg text-left">${summaryHtml}</div>
@@ -245,26 +228,20 @@
                     showModal('¡Pedido Enviado!', successMessage, true);
                     resetForm();
                 } else {
-                    throw new Error(data.message || 'Ocurrió un error desconocido.');
+                    throw new Error(data.message || 'No se recibió el número de pedido.');
                 }
             })
             .catch(error => {
                 console.error('Error al enviar el pedido:', error);
-                showModal(
-                    'Error de Conexión', 
-                    `No se pudo conectar con el servidor para registrar el pedido. Verifica tu conexión a internet y que la URL del script sea correcta. Error: ${error.message}`, 
-                    false
-                );
+                showModal('Error de Conexión', `No se pudo registrar tu pedido. Error: ${error.message}`, false);
             })
             .finally(() => {
-                // Ocultar spinner y habilitar botón
                 buttonText.classList.remove('hidden');
                 buttonSpinner.classList.add('hidden');
                 submitButton.disabled = false;
             });
         });
 
-        // Inicializar la aplicación
         document.addEventListener('DOMContentLoaded', () => {
             renderProducts();
         });
