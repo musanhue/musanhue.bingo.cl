@@ -162,8 +162,6 @@
         // Mostrar el modal
         function showModal(title, message, isSuccess) {
             modalTitle.textContent = title;
-            // --- CAMBIO AQUÍ ---
-            // Se usa innerHTML para renderizar el resumen del pedido con formato.
             modalMessage.innerHTML = message;
             if (isSuccess) {
                 modalIcon.innerHTML = `<svg class="w-16 h-16 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
@@ -236,10 +234,14 @@
             .then(res => res.json())
             .then(data => {
                 if(data.result === 'success') {
-                    // --- CAMBIO AQUÍ ---
-                    // Crear el resumen del pedido para el modal de éxito.
+                    // --- CAMBIO PRINCIPAL AQUÍ ---
+                    // Se añade el aviso para sacar pantallazo y se le da estilo.
                     const summaryHtml = orderDetails.map(item => `<p class="text-sm text-left">${item.quantity} x ${item.name}</p>`).join('');
-                    const successMessage = `Tu pedido ha sido registrado. ¡Gracias por tu compra!<div class="mt-4 bg-gray-50 p-3 rounded-lg text-left">${summaryHtml}</div>`;
+                    const successMessage = `
+                        <p class='text-lg font-bold text-red-600 mb-4'>Recuerda sacar un pantallazo a este mensaje</p>
+                        <p>Tu pedido ha sido registrado. ¡Gracias por tu compra!</p>
+                        <div class="mt-4 bg-gray-50 p-3 rounded-lg text-left">${summaryHtml}</div>
+                    `;
                     showModal('¡Pedido Enviado!', successMessage, true);
                     resetForm();
                 } else {
