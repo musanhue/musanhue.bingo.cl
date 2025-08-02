@@ -223,38 +223,47 @@
                  return;
             }
 
+            // CORRECCIÓN: Se ajusta el orden de las cabeceras para que coincida con la imagen.
             let tableHTML = `
                 <table class="min-w-full bg-white rounded-lg">
                     <thead class="bg-gray-200">
                         <tr>
-                            <th class="text-left py-3 px-4 uppercase font-semibold text-sm">${headers[5] || 'N° Pedido'}</th>`;
-            for(let i = 0; i < 4; i++) {
-                tableHTML += `<th class="text-left py-3 px-4 uppercase font-semibold text-sm">${headers[i] || `Columna ${i+1}`}</th>`;
-            }
-            tableHTML += `<th class="text-left py-3 px-4 uppercase font-semibold text-sm">Acción</th>
+                            <th class="text-left py-3 px-4 uppercase font-semibold text-sm">${headers[5] || 'N° Pedido'}</th>
+                            <th class="text-left py-3 px-4 uppercase font-semibold text-sm">${headers[0] || 'Hora'}</th>
+                            <th class="text-left py-3 px-4 uppercase font-semibold text-sm">${headers[1] || 'Nombre'}</th>
+                            <th class="text-left py-3 px-4 uppercase font-semibold text-sm">${headers[3] || 'Precio'}</th>
+                            <th class="text-left py-3 px-4 uppercase font-semibold text-sm">${headers[2] || 'Pedido'}</th>
+                            <th class="text-left py-3 px-4 uppercase font-semibold text-sm">Acción</th>
                         </tr>
                     </thead>
                     <tbody class="text-gray-700">`;
 
             orders.forEach((orderItem) => {
+                // Se extraen los datos para mayor claridad
                 const orderId = orderItem.data[5] || '-';
-                tableHTML += `<tr class="border-b border-gray-200 hover:bg-gray-50">
-                                <td class="text-left py-3 px-4 align-top font-bold text-gray-600">${orderId}</td>`;
-                for(let i = 0; i < 4; i++) {
-                    let cellData = orderItem.data[i] || '';
-                    if (i === 2) { // Columna "Pedido"
-                        cellData = cellData.replace(/[\[\]]/g, '');
-                        cellData = cellData.replace(/;/g, '<br>');
-                    }
-                    tableHTML += `<td class="text-left py-3 px-4 align-top">${cellData}</td>`;
-                }
-                tableHTML += `<td class="text-left py-3 px-4 align-top">
-                                <button onclick="markAsDelivered(${orderItem.rowNum}, this)" 
-                                        class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-300 disabled:bg-gray-400">
-                                    Entregar
-                                </button>
-                              </td>
-                            </tr>`;
+                const hora = orderItem.data[0] || '';
+                const nombre = orderItem.data[1] || '';
+                let pedido = orderItem.data[2] || '';
+                const precio = orderItem.data[3] || '';
+
+                // Se aplica el formato a la variable "pedido"
+                pedido = pedido.replace(/[\[\]]/g, '').replace(/;/g, '<br>');
+
+                // CORRECCIÓN: Se arma la fila de la tabla en el orden correcto.
+                tableHTML += `
+                    <tr class="border-b border-gray-200 hover:bg-gray-50">
+                        <td class="text-left py-3 px-4 align-top font-bold text-gray-600">${orderId}</td>
+                        <td class="text-left py-3 px-4 align-top">${hora}</td>
+                        <td class="text-left py-3 px-4 align-top">${nombre}</td>
+                        <td class="text-left py-3 px-4 align-top">${precio}</td>
+                        <td class="text-left py-3 px-4 align-top">${pedido}</td>
+                        <td class="text-left py-3 px-4 align-top">
+                            <button onclick="markAsDelivered(${orderItem.rowNum}, this)" 
+                                    class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-300 disabled:bg-gray-400">
+                                Entregar
+                            </button>
+                        </td>
+                    </tr>`;
             });
 
             tableHTML += `</tbody></table>`;
