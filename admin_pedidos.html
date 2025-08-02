@@ -11,15 +11,22 @@
         body {
             font-family: 'Inter', sans-serif;
         }
+        /* Simple animation for the refresh button */
+        .rotate-on-click {
+            transition: transform 0.5s ease-in-out;
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
 
-    <div class="container mx-auto p-4 md:p-8 max-w-4xl">
+    <div class="container mx-auto p-4 md:p-8 max-w-5xl">
         <div class="bg-white rounded-xl shadow-lg p-6 md:p-8">
-            <div class="flex justify-between items-center mb-6 pb-4 border-b">
+            <div class="flex flex-wrap justify-between items-center mb-6 pb-4 border-b gap-4">
                 <h1 class="text-2xl md:text-3xl font-bold text-gray-700">Pedidos Pendientes</h1>
-                <div id="auth-container">
+                <div id="auth-container" class="flex items-center gap-2">
+                    <button id="refresh_button" class="hidden bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold p-2 rounded-full transition-colors duration-300" title="Actualizar manualmente">
+                        <svg id="refresh_icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="rotate-on-click"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg>
+                    </button>
                     <button id="authorize_button" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-300">Autorizar</button>
                     <button id="signout_button" class="hidden bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-300">Cerrar Sesión</button>
                 </div>
@@ -41,21 +48,8 @@
 
     <script>
         // ===================================================================================
-        // PASO 1: CONFIGURACIÓN - ¡IMPORTANTE!
+        // CONFIGURACIÓN
         // ===================================================================================
-        // Sigue estos pasos para obtener tus credenciales:
-        // 1. Ve a la Google Cloud Console: https://console.cloud.google.com/
-        // 2. Crea un nuevo proyecto o selecciona uno existente.
-        // 3. En el menú de navegación, ve a "APIs y servicios" > "Biblioteca".
-        // 4. Busca "Google Sheets API" y actívala.
-        // 5. Ve a "APIs y servicios" > "Credenciales".
-        // 6. Haz clic en "+ CREAR CREDENCIALES" y selecciona "Clave de API". Cópiala y pégala abajo.
-        // 7. Vuelve a hacer clic en "+ CREAR CREDENCIALES" y selecciona "ID de cliente de OAuth".
-        // 8. Selecciona "Aplicación web" como tipo de aplicación.
-        // 9. En "Orígenes de JavaScript autorizados", añade la URL donde alojarás esta página (ej. http://localhost, http://127.0.0.1:5500 o tu dominio).
-        // 10. En "URIs de redireccionamiento autorizados", añade la misma URL.
-        // 11. Crea el ID de cliente, cópialo y pégalo abajo.
-
         const API_KEY = 'AIzaSyA4qxGEwBuea5WdYjHPzlY3gCj-8nDlvPs'; // <-- PEGA TU CLAVE DE API AQUÍ
         const CLIENT_ID = '442494990997-3jgbq9lafn9gsn8kdaovn91uc1pn3amk.apps.googleusercontent.com'; // <-- PEGA TU ID DE CLIENTE AQUÍ
 
@@ -67,22 +61,26 @@
         const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
         const SPREADSHEET_ID = '1iESlwByM_7_GfkdvkQjFrYg9-HkxCgqXU59OpglUgrw';
         const SHEET_NAME = 'Pedidos';
-        const STATUS_COLUMN = 'E'; // Columna E para el estado
+        const STATUS_COLUMN = 'E';
+        const REFRESH_INTERVAL = 60000; // 60 segundos
 
         let tokenClient;
         let gapiInited = false;
         let gisInited = false;
+        let refreshIntervalId = null;
 
         const authorizeButton = document.getElementById('authorize_button');
         const signoutButton = document.getElementById('signout_button');
+        const refreshButton = document.getElementById('refresh_button');
+        const refreshIcon = document.getElementById('refresh_icon');
         const ordersContainer = document.getElementById('orders-container');
         const messageContainer = document.getElementById('message-container');
         const loader = document.getElementById('loader');
 
         authorizeButton.onclick = handleAuthClick;
         signoutButton.onclick = handleSignoutClick;
+        refreshButton.onclick = handleManualRefresh;
 
-        // Carga de las APIs de Google
         function gapiLoaded() {
             gapi.load('client', initializeGapiClient);
         }
@@ -100,7 +98,7 @@
             tokenClient = google.accounts.oauth2.initTokenClient({
                 client_id: CLIENT_ID,
                 scope: SCOPES,
-                callback: '', // Se define dinámicamente en handleAuthClick
+                callback: '',
             });
             gisInited = true;
             maybeEnableButtons();
@@ -118,16 +116,16 @@
             }
         }
 
-        // Manejo de la autenticación
         function handleAuthClick() {
             tokenClient.callback = async (resp) => {
                 if (resp.error !== undefined) {
                     throw (resp);
                 }
-                authorizeButton.classList.add('hidden');
-                signoutButton.classList.remove('hidden');
-                showMessage('success', '¡Autorización exitosa! Cargando pedidos...');
+                updateUiForAuth();
                 await listPendingOrders();
+                // Iniciar actualización automática
+                if (refreshIntervalId) clearInterval(refreshIntervalId);
+                refreshIntervalId = setInterval(listPendingOrders, REFRESH_INTERVAL);
             };
 
             if (gapi.client.getToken() === null) {
@@ -138,18 +136,38 @@
         }
 
         function handleSignoutClick() {
+            // Detener actualización automática
+            if (refreshIntervalId) clearInterval(refreshIntervalId);
+            refreshIntervalId = null;
+            
             const token = gapi.client.getToken();
             if (token !== null) {
                 google.accounts.oauth2.revoke(token.access_token);
                 gapi.client.setToken('');
-                ordersContainer.innerHTML = '';
-                authorizeButton.classList.remove('hidden');
-                signoutButton.classList.add('hidden');
-                showMessage('info', 'Has cerrado la sesión.');
+                updateUiForSignout();
             }
         }
+        
+        function handleManualRefresh() {
+            refreshIcon.style.transform = `rotate(${parseInt(refreshIcon.style.transform.replace('rotate(','').replace('deg)','') || 0) + 360}deg)`;
+            listPendingOrders();
+        }
 
-        // Función para mostrar mensajes al usuario
+        function updateUiForAuth() {
+            authorizeButton.classList.add('hidden');
+            signoutButton.classList.remove('hidden');
+            refreshButton.classList.remove('hidden');
+            showMessage('success', '¡Autorización exitosa! Cargando pedidos...');
+        }
+
+        function updateUiForSignout() {
+            ordersContainer.innerHTML = '';
+            authorizeButton.classList.remove('hidden');
+            signoutButton.classList.add('hidden');
+            refreshButton.classList.add('hidden');
+            showMessage('info', 'Has cerrado la sesión. La actualización automática se ha detenido.');
+        }
+
         function showMessage(type, text) {
             const colors = {
                 info: 'bg-blue-100 border-blue-500 text-blue-700',
@@ -160,49 +178,51 @@
             messageContainer.innerHTML = `<div class="border-l-4 p-4 ${colors[type]}" role="alert"><p>${text}</p></div>`;
         }
         
-        // Función para listar los pedidos pendientes
         async function listPendingOrders() {
-            loader.classList.remove('hidden');
-            ordersContainer.innerHTML = '';
-            messageContainer.innerHTML = '';
+            // No mostrar el loader en actualizaciones automáticas/manuales si ya hay una tabla
+            if (!ordersContainer.querySelector('table')) {
+                loader.classList.remove('hidden');
+            }
+            // Limpiar mensajes antiguos, excepto el de éxito de autorización inicial
+            if (!messageContainer.innerHTML.includes('Autorización exitosa')) {
+                 messageContainer.innerHTML = '';
+            }
             
             try {
                 const response = await gapi.client.sheets.spreadsheets.values.get({
                     spreadsheetId: SPREADSHEET_ID,
-                    range: `${SHEET_NAME}!A:E`, // Leer columnas A a E
+                    range: `${SHEET_NAME}!A:E`,
                 });
 
                 const rows = response.result.values;
-                if (rows && rows.length > 1) { // >1 para saltar la cabecera
+                if (rows && rows.length > 1) {
                     const headers = rows[0];
                     const pendingOrders = [];
-
-                    // Empezamos desde i=1 para saltar la fila de cabecera
                     for (let i = 1; i < rows.length; i++) {
                         const order = rows[i];
-                        // La columna de estado es la E, que corresponde al índice 4
                         if (order[4] && order[4].toLowerCase() === 'pendiente') {
-                            // Guardamos el pedido y su número de fila original (i + 1 porque las filas de Sheets son 1-indexed)
                             pendingOrders.push({ data: order, rowNum: i + 1 });
                         }
                     }
-                    
                     renderOrdersTable(pendingOrders, headers);
-
                 } else {
                     showMessage('info', 'No se encontraron pedidos pendientes o la hoja está vacía.');
                 }
             } catch (err) {
                 console.error(err);
                 showMessage('error', `Error al cargar los datos: ${err.result.error.message}`);
+                // Si hay un error de autenticación, podría ser que el token expiró.
+                if (err.status === 401) {
+                    handleSignoutClick();
+                    showMessage('error', 'La sesión ha expirado. Por favor, autoriza de nuevo.');
+                }
             } finally {
                 loader.classList.add('hidden');
             }
         }
 
-        // Función para renderizar la tabla de pedidos
         function renderOrdersTable(orders, headers) {
-            if (orders.length === 0) {
+             if (orders.length === 0) {
                  showMessage('success', '¡Felicidades! No hay pedidos pendientes.');
                  ordersContainer.innerHTML = '';
                  return;
@@ -211,8 +231,8 @@
             let tableHTML = `
                 <table class="min-w-full bg-white rounded-lg">
                     <thead class="bg-gray-200">
-                        <tr>`;
-            // Usamos solo las primeras 4 cabeceras (A-D) para la tabla
+                        <tr>
+                            <th class="text-left py-3 px-4 uppercase font-semibold text-sm w-12">#</th>`;
             for(let i = 0; i < 4; i++) {
                 tableHTML += `<th class="text-left py-3 px-4 uppercase font-semibold text-sm">${headers[i] || `Columna ${i+1}`}</th>`;
             }
@@ -221,15 +241,14 @@
                     </thead>
                     <tbody class="text-gray-700">`;
 
-            orders.forEach(orderItem => {
-                tableHTML += `<tr class="border-b border-gray-200 hover:bg-gray-50">`;
-                // Mostramos los datos de las primeras 4 columnas
+            orders.forEach((orderItem, index) => {
+                tableHTML += `<tr class="border-b border-gray-200 hover:bg-gray-50">
+                                <td class="text-left py-3 px-4 align-top font-bold text-gray-600">${index + 1}</td>`;
                 for(let i = 0; i < 4; i++) {
                     let cellData = orderItem.data[i] || '';
-                    // Si es la columna "Pedido" (índice 2), aplicamos el formato
-                    if (i === 2) {
-                        cellData = cellData.replace(/[\[\]]/g, ''); // Eliminar corchetes
-                        cellData = cellData.replace(/;/g, '<br>');   // Reemplazar ; con salto de línea
+                    if (i === 2) { // Columna "Pedido"
+                        cellData = cellData.replace(/[\[\]]/g, '');
+                        cellData = cellData.replace(/;/g, '<br>');
                     }
                     tableHTML += `<td class="text-left py-3 px-4 align-top">${cellData}</td>`;
                 }
@@ -246,7 +265,6 @@
             ordersContainer.innerHTML = tableHTML;
         }
 
-        // Función para marcar un pedido como "Entregado"
         async function markAsDelivered(rowNum, button) {
             button.disabled = true;
             button.textContent = 'Actualizando...';
@@ -264,7 +282,6 @@
                 });
                 
                 showMessage('success', `El pedido de la fila ${rowNum} ha sido marcado como 'Entregado'. Actualizando lista...`);
-                // Esperar un poco para que el usuario vea el mensaje antes de recargar
                 setTimeout(listPendingOrders, 1500);
 
             } catch (err) {
@@ -276,7 +293,6 @@
         }
 
     </script>
-    <!-- Carga asíncrona de las librerías de Google -->
     <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
     <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
 </body>
