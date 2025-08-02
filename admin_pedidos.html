@@ -222,8 +222,8 @@
                  ordersContainer.innerHTML = '';
                  return;
             }
-
-            // CORRECCIÓN: Se ajusta el orden de las cabeceras para que coincida con la imagen.
+            
+            // CORRECCIÓN FINAL: Asegura que el orden de las cabeceras y los datos coincida con la última captura de pantalla.
             let tableHTML = `
                 <table class="min-w-full bg-white rounded-lg">
                     <thead class="bg-gray-200">
@@ -231,8 +231,8 @@
                             <th class="text-left py-3 px-4 uppercase font-semibold text-sm">${headers[5] || 'N° Pedido'}</th>
                             <th class="text-left py-3 px-4 uppercase font-semibold text-sm">${headers[0] || 'Hora'}</th>
                             <th class="text-left py-3 px-4 uppercase font-semibold text-sm">${headers[1] || 'Nombre'}</th>
-                            <th class="text-left py-3 px-4 uppercase font-semibold text-sm">${headers[3] || 'Precio'}</th>
                             <th class="text-left py-3 px-4 uppercase font-semibold text-sm">${headers[2] || 'Pedido'}</th>
+                            <th class="text-left py-3 px-4 uppercase font-semibold text-sm">${headers[3] || 'Precio'}</th>
                             <th class="text-left py-3 px-4 uppercase font-semibold text-sm">Acción</th>
                         </tr>
                     </thead>
@@ -243,20 +243,20 @@
                 const orderId = orderItem.data[5] || '-';
                 const hora = orderItem.data[0] || '';
                 const nombre = orderItem.data[1] || '';
-                let pedido = orderItem.data[2] || '';
-                const precio = orderItem.data[3] || '';
+                let pedido = orderItem.data[2] || ''; // Dato de la columna C
+                const precio = orderItem.data[3] || ''; // Dato de la columna D
 
-                // Se aplica el formato a la variable "pedido"
+                // Se aplica el formato a la variable "pedido" (columna C)
                 pedido = pedido.replace(/[\[\]]/g, '').replace(/;/g, '<br>');
 
-                // CORRECCIÓN: Se arma la fila de la tabla en el orden correcto.
+                // Se arma la fila de la tabla en el orden visual correcto.
                 tableHTML += `
                     <tr class="border-b border-gray-200 hover:bg-gray-50">
                         <td class="text-left py-3 px-4 align-top font-bold text-gray-600">${orderId}</td>
                         <td class="text-left py-3 px-4 align-top">${hora}</td>
                         <td class="text-left py-3 px-4 align-top">${nombre}</td>
-                        <td class="text-left py-3 px-4 align-top">${precio}</td>
                         <td class="text-left py-3 px-4 align-top">${pedido}</td>
+                        <td class="text-left py-3 px-4 align-top">${precio}</td>
                         <td class="text-left py-3 px-4 align-top">
                             <button onclick="markAsDelivered(${orderItem.rowNum}, this)" 
                                     class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-300 disabled:bg-gray-400">
