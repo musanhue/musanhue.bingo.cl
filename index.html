@@ -40,9 +40,9 @@
                 <input type="text" id="customer-name" name="customer-name" class="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ingresa tu nombre completo">
             </div>
 
-            <!-- Lista de Productos -->
-            <div id="product-list" class="space-y-4 mb-8">
-                <!-- Los productos se insertarán aquí dinámicamente -->
+            <!-- Lista de Productos con Categorías -->
+            <div id="product-list" class="space-y-6 mb-8">
+                <!-- Las categorías y productos se insertarán aquí dinámicamente -->
             </div>
 
             <!-- Total -->
@@ -86,19 +86,54 @@
         // URL de tu Web App de Google Apps Script. ¡REEMPLAZA ESTA URL!
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxTvqyk44f3vbT-ewzdv1-c5lNbqU9Nj5reHy8C6wZtpzSNaGZFeuNjqlNNmQOLfEbE/exec"; // URL de ejemplo, debes reemplazarla
 
-        const products = [
-            { id: 1, name: "Completo solo", price: 2500 },
-            { id: 2, name: "Completo + Bebida", price: 3000 },
-            { id: 3, name: "Anticucho solo", price: 3500 },
-            { id: 4, name: "Anticucho + Bebida", price: 4000 },
-            { id: 5, name: "Bebida", price: 1000 },
-            { id: 6, name: "Te", price: 1000 },
-            { id: 7, name: "Café", price: 1000 },
-            { id: 8, name: "Queque", price: 1000 },
-            { id: 9, name: "Queque + te/cafe", price: 1500 },
-            { id: 10, name: "Calzon roto", price: 1000 },
-            { id: 11, name: "Calzon roto + te/cafe", price: 1500 }
+        // --- CAMBIO PRINCIPAL AQUÍ ---
+        // La lista de productos ahora incluye la categoría "Juegos".
+        const productsByCategory = [
+            {
+                category: "Comida",
+                items: [
+                    { id: 1, name: "Completo", price: 2500 },
+                    { id: 2, name: "Anticucho", price: 3500 },
+                    { id: 3, name: "Queque", price: 1000 },
+                    { id: 4, name: "2 Calzones rotos", price: 1000 },
+                    { id: 5, name: "3 Sopaipillas", price: 1000 }
+                ]
+            },
+            {
+                category: "Bebestibles",
+                items: [
+                    { id: 6, name: "Bebida", price: 1000 },
+                    { id: 7, name: "Te", price: 1000 },
+                    { id: 8, name: "Café", price: 1000 }
+                ]
+            },
+            {
+                category: "Promos",
+                items: [
+                    { id: 9, name: "Completo + Bebida", price: 3000 },
+                    { id: 10, name: "Antocucho + Bebida", price: 4000 },
+                    { id: 11, name: "Queque + te", price: 1500 },
+                    { id: 12, name: "Queque + café", price: 1500 },
+                    { id: 13, name: "Queque + bebida", price: 1500 },
+                    { id: 14, name: "2 Calzones rotos + te", price: 1500 },
+                    { id: 15, name: "2 Calzones rotos + café", price: 1500 },
+                    { id: 16, name: "2 Calzones rotos + bebida", price: 1500 },
+                    { id: 17, name: "3 Sopaipillas + te", price: 1500 },
+                    { id: 18, name: "3 Sopaipillas + café", price: 1500 },
+                    { id: 19, name: "3 Sopaipillas + bebida", price: 1500 }
+                ]
+            },
+            {
+                category: "Juegos",
+                items: [
+                    { id: 20, name: "Carton de Bingo", price: 1000 },
+                    { id: 21, name: "Rifa", price: 1000 }
+                ]
+            }
         ];
+
+        // Aplanar la lista de productos para facilitar los cálculos y el envío de datos.
+        const allProducts = productsByCategory.flatMap(category => category.items);
 
         const productList = document.getElementById('product-list');
         const totalAmountEl = document.getElementById('total-amount');
@@ -116,21 +151,35 @@
         }
 
         function renderProducts() {
-            products.forEach(product => {
-                const productElement = document.createElement('div');
-                productElement.className = 'flex items-center justify-between bg-white p-4 rounded-xl border border-gray-200';
-                productElement.innerHTML = `
-                    <div>
-                        <p class="font-semibold text-gray-800">${product.name}</p>
-                        <p class="text-sm text-gray-500">${formatPrice(product.price)}</p>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <button class="quantity-btn w-8 h-8 rounded-full border bg-gray-100 text-lg font-bold text-gray-600" onclick="updateQuantity(${product.id}, -1)">-</button>
-                        <input type="number" id="quantity-${product.id}" class="w-16 h-10 text-center border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" value="0" min="0" onchange="calculateTotal()">
-                        <button class="quantity-btn w-8 h-8 rounded-full border bg-gray-100 text-lg font-bold text-gray-600" onclick="updateQuantity(${product.id}, 1)">+</button>
-                    </div>
-                `;
-                productList.appendChild(productElement);
+            productList.innerHTML = ''; // Limpiar la lista antes de renderizar.
+            productsByCategory.forEach(category => {
+                // Crear el título de la categoría.
+                const categoryTitle = document.createElement('h2');
+                categoryTitle.className = 'text-2xl font-bold text-gray-700 border-b-2 border-gray-200 pb-2';
+                categoryTitle.textContent = category.category;
+                productList.appendChild(categoryTitle);
+
+                const itemsContainer = document.createElement('div');
+                itemsContainer.className = 'space-y-4';
+                
+                // Renderizar cada producto dentro de la categoría.
+                category.items.forEach(product => {
+                    const productElement = document.createElement('div');
+                    productElement.className = 'flex items-center justify-between bg-white p-4 rounded-xl border border-gray-200';
+                    productElement.innerHTML = `
+                        <div>
+                            <p class="font-semibold text-gray-800">${product.name}</p>
+                            <p class="text-sm text-gray-500">${formatPrice(product.price)}</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button class="quantity-btn w-8 h-8 rounded-full border bg-gray-100 text-lg font-bold text-gray-600" onclick="updateQuantity(${product.id}, -1)">-</button>
+                            <input type="number" id="quantity-${product.id}" class="w-16 h-10 text-center border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" value="0" min="0" onchange="calculateTotal()">
+                            <button class="quantity-btn w-8 h-8 rounded-full border bg-gray-100 text-lg font-bold text-gray-600" onclick="updateQuantity(${product.id}, 1)">+</button>
+                        </div>
+                    `;
+                    itemsContainer.appendChild(productElement);
+                });
+                productList.appendChild(itemsContainer);
             });
         }
 
@@ -145,7 +194,7 @@
 
         window.calculateTotal = function() {
             let total = 0;
-            products.forEach(product => {
+            allProducts.forEach(product => {
                 const input = document.getElementById(`quantity-${product.id}`);
                 const quantity = parseInt(input.value);
                 if (!isNaN(quantity) && quantity > 0) {
@@ -171,7 +220,7 @@
         }
         
         function resetForm() {
-            products.forEach(product => {
+            allProducts.forEach(product => {
                 document.getElementById(`quantity-${product.id}`).value = 0;
             });
             customerNameEl.value = '';
@@ -185,7 +234,7 @@
                 return;
             }
 
-            const orderDetails = products.map(product => {
+            const orderDetails = allProducts.map(product => {
                 const quantity = parseInt(document.getElementById(`quantity-${product.id}`).value);
                 return { name: product.name, quantity: quantity, price: product.price, subtotal: product.price * quantity };
             }).filter(item => item.quantity > 0);
@@ -216,7 +265,6 @@
             .then(res => res.json())
             .then(data => {
                 if(data.result === 'success' && data.orderNumber) {
-                    // --- CAMBIO PRINCIPAL AQUÍ ---
                     const summaryHtml = orderDetails.map(item => `<p class="text-sm text-left">${item.quantity} x ${item.name}</p>`).join('');
                     const successMessage = `
                         <p class="text-gray-800">Tu número de pedido es:</p>
