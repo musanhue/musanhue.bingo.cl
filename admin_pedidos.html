@@ -123,7 +123,6 @@
                 }
                 updateUiForAuth();
                 await listPendingOrders();
-                // Iniciar actualización automática
                 if (refreshIntervalId) clearInterval(refreshIntervalId);
                 refreshIntervalId = setInterval(listPendingOrders, REFRESH_INTERVAL);
             };
@@ -136,7 +135,6 @@
         }
 
         function handleSignoutClick() {
-            // Detener actualización automática
             if (refreshIntervalId) clearInterval(refreshIntervalId);
             refreshIntervalId = null;
             
@@ -187,7 +185,6 @@
             }
             
             try {
-                // Leer hasta la columna F para obtener el número de pedido
                 const response = await gapi.client.sheets.spreadsheets.values.get({
                     spreadsheetId: SPREADSHEET_ID,
                     range: `${SHEET_NAME}!A:F`,
@@ -199,9 +196,7 @@
                     const pendingOrders = [];
                     for (let i = 1; i < rows.length; i++) {
                         const order = rows[i];
-                        // El estado está en la columna E (índice 4)
                         if (order[4] && order[4].toLowerCase() === 'pendiente') {
-                            // El N° de pedido está en la columna F (índice 5)
                             pendingOrders.push({ data: order, rowNum: i + 1 });
                         }
                     }
@@ -232,8 +227,7 @@
                 <table class="min-w-full bg-white rounded-lg">
                     <thead class="bg-gray-200">
                         <tr>
-                            <th class="text-left py-3 px-4 uppercase font-semibold text-sm">${headers[5] || 'N° Pedido'}</th>`; // Usa la cabecera de la columna F
-            // Muestra las cabeceras de las columnas A a D
+                            <th class="text-left py-3 px-4 uppercase font-semibold text-sm">${headers[5] || 'N° Pedido'}</th>`;
             for(let i = 0; i < 4; i++) {
                 tableHTML += `<th class="text-left py-3 px-4 uppercase font-semibold text-sm">${headers[i] || `Columna ${i+1}`}</th>`;
             }
@@ -243,10 +237,9 @@
                     <tbody class="text-gray-700">`;
 
             orders.forEach((orderItem) => {
-                const orderId = orderItem.data[5] || '-'; // Obtiene el valor de la columna F
+                const orderId = orderItem.data[5] || '-';
                 tableHTML += `<tr class="border-b border-gray-200 hover:bg-gray-50">
                                 <td class="text-left py-3 px-4 align-top font-bold text-gray-600">${orderId}</td>`;
-                // Muestra los datos de las columnas A a D
                 for(let i = 0; i < 4; i++) {
                     let cellData = orderItem.data[i] || '';
                     if (i === 2) { // Columna "Pedido"
