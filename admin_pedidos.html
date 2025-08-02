@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -15,7 +15,6 @@
 </head>
 <body class="bg-gray-100 text-gray-800">
 
-
     <div class="container mx-auto p-4 md:p-8 max-w-4xl">
         <div class="bg-white rounded-xl shadow-lg p-6 md:p-8">
             <div class="flex justify-between items-center mb-6 pb-4 border-b">
@@ -26,10 +25,8 @@
                 </div>
             </div>
 
-
             <!-- Contenedor para mensajes y errores -->
             <div id="message-container" class="mb-4"></div>
-
 
             <!-- Contenedor de la tabla de pedidos -->
             <div id="orders-container" class="overflow-x-auto">
@@ -41,7 +38,6 @@
             </div>
         </div>
     </div>
-
 
     <script>
         // ===================================================================================
@@ -60,15 +56,12 @@
         // 10. En "URIs de redireccionamiento autorizados", añade la misma URL.
         // 11. Crea el ID de cliente, cópialo y pégalo abajo.
 
-
         const API_KEY = 'AIzaSyA4qxGEwBuea5WdYjHPzlY3gCj-8nDlvPs'; // <-- PEGA TU CLAVE DE API AQUÍ
         const CLIENT_ID = '442494990997-3jgbq9lafn9gsn8kdaovn91uc1pn3amk.apps.googleusercontent.com'; // <-- PEGA TU ID DE CLIENTE AQUÍ
-
 
         // ===================================================================================
         // NO MODIFICAR DEBAJO DE ESTA LÍNEA
         // ===================================================================================
-
 
         const DISCOVERY_DOC = 'https://sheets.googleapis.com/$discovery/rest?version=v4';
         const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
@@ -76,11 +69,9 @@
         const SHEET_NAME = 'Pedidos';
         const STATUS_COLUMN = 'E'; // Columna E para el estado
 
-
         let tokenClient;
         let gapiInited = false;
         let gisInited = false;
-
 
         const authorizeButton = document.getElementById('authorize_button');
         const signoutButton = document.getElementById('signout_button');
@@ -88,16 +79,13 @@
         const messageContainer = document.getElementById('message-container');
         const loader = document.getElementById('loader');
 
-
         authorizeButton.onclick = handleAuthClick;
         signoutButton.onclick = handleSignoutClick;
-
 
         // Carga de las APIs de Google
         function gapiLoaded() {
             gapi.load('client', initializeGapiClient);
         }
-
 
         async function initializeGapiClient() {
             await gapi.client.init({
@@ -108,7 +96,6 @@
             maybeEnableButtons();
         }
 
-
         function gisLoaded() {
             tokenClient = google.accounts.oauth2.initTokenClient({
                 client_id: CLIENT_ID,
@@ -118,7 +105,6 @@
             gisInited = true;
             maybeEnableButtons();
         }
-
 
         function maybeEnableButtons() {
             if (gapiInited && gisInited) {
@@ -132,7 +118,6 @@
             }
         }
 
-
         // Manejo de la autenticación
         function handleAuthClick() {
             tokenClient.callback = async (resp) => {
@@ -145,14 +130,12 @@
                 await listPendingOrders();
             };
 
-
             if (gapi.client.getToken() === null) {
                 tokenClient.requestAccessToken({prompt: 'consent'});
             } else {
                 tokenClient.requestAccessToken({prompt: ''});
             }
         }
-
 
         function handleSignoutClick() {
             const token = gapi.client.getToken();
@@ -165,7 +148,6 @@
                 showMessage('info', 'Has cerrado la sesión.');
             }
         }
-
 
         // Función para mostrar mensajes al usuario
         function showMessage(type, text) {
@@ -190,12 +172,10 @@
                     range: `${SHEET_NAME}!A:E`, // Leer columnas A a E
                 });
 
-
                 const rows = response.result.values;
                 if (rows && rows.length > 1) { // >1 para saltar la cabecera
                     const headers = rows[0];
                     const pendingOrders = [];
-
 
                     // Empezamos desde i=1 para saltar la fila de cabecera
                     for (let i = 1; i < rows.length; i++) {
@@ -209,7 +189,6 @@
                     
                     renderOrdersTable(pendingOrders, headers);
 
-
                 } else {
                     showMessage('info', 'No se encontraron pedidos pendientes o la hoja está vacía.');
                 }
@@ -221,7 +200,6 @@
             }
         }
 
-
         // Función para renderizar la tabla de pedidos
         function renderOrdersTable(orders, headers) {
             if (orders.length === 0) {
@@ -229,7 +207,6 @@
                  ordersContainer.innerHTML = '';
                  return;
             }
-
 
             let tableHTML = `
                 <table class="min-w-full bg-white rounded-lg">
@@ -244,14 +221,19 @@
                     </thead>
                     <tbody class="text-gray-700">`;
 
-
             orders.forEach(orderItem => {
                 tableHTML += `<tr class="border-b border-gray-200 hover:bg-gray-50">`;
                 // Mostramos los datos de las primeras 4 columnas
                 for(let i = 0; i < 4; i++) {
-                    tableHTML += `<td class="text-left py-3 px-4">${orderItem.data[i] || ''}</td>`;
+                    let cellData = orderItem.data[i] || '';
+                    // Si es la columna "Pedido" (índice 2), aplicamos el formato
+                    if (i === 2) {
+                        cellData = cellData.replace(/[\[\]]/g, ''); // Eliminar corchetes
+                        cellData = cellData.replace(/;/g, '<br>');   // Reemplazar ; con salto de línea
+                    }
+                    tableHTML += `<td class="text-left py-3 px-4 align-top">${cellData}</td>`;
                 }
-                tableHTML += `<td class="text-left py-3 px-4">
+                tableHTML += `<td class="text-left py-3 px-4 align-top">
                                 <button onclick="markAsDelivered(${orderItem.rowNum}, this)" 
                                         class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-300 disabled:bg-gray-400">
                                     Entregar
@@ -260,17 +242,14 @@
                             </tr>`;
             });
 
-
             tableHTML += `</tbody></table>`;
             ordersContainer.innerHTML = tableHTML;
         }
-
 
         // Función para marcar un pedido como "Entregado"
         async function markAsDelivered(rowNum, button) {
             button.disabled = true;
             button.textContent = 'Actualizando...';
-
 
             const updateRange = `${SHEET_NAME}!${STATUS_COLUMN}${rowNum}`;
             
@@ -288,7 +267,6 @@
                 // Esperar un poco para que el usuario vea el mensaje antes de recargar
                 setTimeout(listPendingOrders, 1500);
 
-
             } catch (err) {
                 console.error(err);
                 showMessage('error', `Error al actualizar la hoja: ${err.result.error.message}`);
@@ -296,7 +274,6 @@
                 button.textContent = 'Entregar';
             }
         }
-
 
     </script>
     <!-- Carga asíncrona de las librerías de Google -->
